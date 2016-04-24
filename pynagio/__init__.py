@@ -12,18 +12,24 @@ class PynagioCheck(object):
         self.thresholds = []
         self.checked_thresholds = []
         self.thresholds_regex = []
-        self.summary = []
+        self.summary = ["OK"]
         self.output = []
         self.perfdata = []
         self.perfdata_regex = []
         self.rates = []
         self.rates_regex = []
         self.exitcode = 0
+        self.critical_on = []
+        self.warning_on = []
 
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument("-t", nargs='+', dest="thresholds",
                                  help="Threshold(s) to check")
+        self.parser.add_argument("-T", nargs='+', dest="thresholds_regex",
+                                 help="Threshold regex(es) to check")
         self.args = self.parser.parse_args()
+
+        self.parse_thresholds()
 
     def add_option(self, *args):
         self.parser.add_argument(*args)
@@ -40,22 +46,82 @@ class PynagioCheck(object):
     def add_rate(self, metric, *filename):
         pass
 
-    def check_threshold(self, label, value, threshold):
-        pass
+    def parse_thresholds(self):
+        if self.args.thresholds:
+            for threshold in self.args.thresholds:
+                parsed_threshold = {}
+                for kv in [part.split("=") for part in threshold.split(",")]:
+                    if kv[0] == 'metric':
+                        parsed_threshold['label'] = kv[1]
+                    if kv[0] in ['ok', 'crit', 'warn']:
+                        parsed_threshold[kv[0]] = [float(x) for x
+                                                   in kv[1].split("..")]
+                self.thresholds.append(parsed_threshold)
+
+    def check_thresholds(self, label, value):
+        value = float(value)
+        if self.thresholds:
+            for threshold in self.thresholds:
+                if label == threshold['label']:
+                    checked_threshold = threshold
+                    checked_threshold['value'] = value
+                    if 'ok' in threshold:
+                        if threshold['ok'][0] < value <= threshold['ok'][1]:
+                            checked_threshold['exitcode'] = 0
+                            self.checked_thresholds.append(checked_threshold)
+                            break
+                    if 'crit' in threshold:
+                        if threshold['crit'][0] < value <= threshold['crit'][1]:
+                            checked_threshold['exitcode'] = 2
+                            self.checked_thresholds.append(checked_threshold)
+                            break
+                    if 'warn' in threshold:
+                        if threshold['warn'][0] < value <= threshold['warn'][1]:
+                            checked_threshold['exitcode'] = 1
+                            self.checked_thresholds.append(checked_threshold)
+                            break
+                    if 'ok' in threshold:
+                        checked_threshold['exitcode'] = 2
+                        self.checked_thresholds.append(checked_threshold)
+                        break
+                    checked_threshold['exitcode'] = 0
+                    self.checked_thresholds.append(checked_threshold)
 
     def add_metrics(self, metrics):
         self.metrics = metrics
-        threshold = "TODO"
         for label in metrics:
             value = metrics[label]
             self.add_perfdata(label, value)
-            self.check_threshold(label, value, threshold)
+            self.check_thresholds(label, value)
 
     def exit(self):
+        if self.checked_thresholds:
+            for threshold in self.checked_thresholds:
+                if threshold['exitcode'] == 2:
+                    self.exitcode = 2
+                    self.summary[0] = "CRITICAL"
+                    break
+                if threshold['exitcode'] == 1:
+                    self.exitcode = 1
+                    self.summary[0] = "WARNING"
+                    break
+            for threshold in self.checked_thresholds:
+                if threshold['exitcode'] == 2:
+                    self.critical_on.append("{} = {}".format(
+                        threshold['label'], threshold['value']))
+                if threshold['exitcode'] == 1:
+                    self.warning_on.append("{} = {}".format(
+                        threshold['label'], threshold['value']))
+        summary_line = ""
         if self.summary:
-            print(" ".join(self.summary))
-        else:
-            print("OK")
+            summary_line += " ".join(self.summary) + " "
+        if self.critical_on:
+            summary_line += "Critical on" + " " + " ".join(
+                self.critical_on) + " "
+        if self.warning_on:
+            summary_line += "Warning on" + " " + " ".join(
+                self.warning_on) + " "
+        print(summary_line)
         if self.output:
             print(self.output)
         else:
