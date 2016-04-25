@@ -5,4 +5,5 @@ For now calling add_metrics() with python dictionary (label = value) as an argum
 
 ## Features:
   - It can check thresholds (-t). Subset of nagios-plugins new threshold syntax (https://nagios-plugins.org/doc/new-threshold-syntax.html) has been implemented.
-  - Metric name can be specified as regex (-T option)
+  - Metric name can be specified as regex (-T)
+  - Rates (per second) from counters can be calculated (-r)

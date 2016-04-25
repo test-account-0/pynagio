@@ -1,6 +1,11 @@
 import argparse
 import sys
+import os
 import re
+import time
+import getpass
+import hashlib
+import json
 
 
 class PynagioCheck(object):
@@ -16,7 +21,7 @@ class PynagioCheck(object):
         self.output = []
         self.perfdata = []
         self.perfdata_regex = []
-        self.rates = []
+        self.rates = {}
         self.rates_regex = []
         self.exitcode = 0
         self.critical_on = []
@@ -29,10 +34,9 @@ class PynagioCheck(object):
                                  help="Threshold regex(es) to check")
         self.parser.add_argument("--no-perfdata", "--np", action='store_true',
                                  help="Threshold regex(es) to check")
+        self.parser.add_argument("-r", nargs='+', dest="rates",
+                                 help="Rates to calculate")
         self.args = self.parser.parse_args()
-
-        print(dir(self.args))
-        # self.parse_thresholds()
 
     def add_option(self, *args):
         self.parser.add_argument(*args)
@@ -86,17 +90,33 @@ class PynagioCheck(object):
                     self.checked_thresholds.append(checked_threshold)
 
     def filter_threshold_regexes(self, label):
-        for threshold_regex in self.args.threshold_regexes:
-            parsed_threshold_regex = parse_threshold_regex(threshold_regex)
-            label_regex = parsed_threshold_regex['label_regex']
-            rest = parsed_threshold_regex['rest']
-            if label_regex.match(label):
-                self.args.thresholds.append("metric={},{}".format(label, rest))
+        if self.args.threshold_regexes:
+            for threshold_regex in self.args.threshold_regexes:
+                parsed_threshold_regex = parse_threshold_regex(threshold_regex)
+                label_regex = parsed_threshold_regex['label_regex']
+                rest = parsed_threshold_regex['rest']
+                if label_regex.match(label):
+                    self.args.thresholds.append("metric={},{}".format(label,
+                                                                      rest))
+
+    def get_rate(self, label, value):
+        if self.args.rates:
+            if label in self.args.rates and calculate_rate(label, value):
+                rate_name, rate = calculate_rate(label, value)
+                return rate_name, rate
+        return False
 
     def add_metrics(self, metrics):
         self.metrics = metrics
         for label in metrics:
-            value = metrics[label]
+            value = float(metrics[label])
+            if self.get_rate(label, value):
+                rate_name, rate = self.get_rate(label, value)
+                self.rates[rate_name] = rate
+        if self.rates:
+            metrics.update(self.rates)
+        for label in metrics:
+            value = float(metrics[label])
             self.add_perfdata(label, value)
             self.filter_threshold_regexes(label)
             self.parse_thresholds()
@@ -137,7 +157,7 @@ class PynagioCheck(object):
         else:
             for label in self.metrics:
                 print("{} = {}".format(label, self.metrics[label]))
-        if self.args.np_perfdata:
+        if not self.args.no_perfdata:
             if self.perfdata:
                 print(" | ")
                 print("\n".join(self.perfdata))
@@ -164,3 +184,40 @@ def parse_threshold_regex(threshold_regex):
         else:
             parsed_threshold_regex['rest'] += "," + kv
     return parsed_threshold_regex
+
+
+def calculate_rate(label, value):
+    time_now = time.time()
+    value_now = {label: (value, time_now)}
+    user = getpass.getuser()
+    script_name = os.path.basename(__file__)
+    hashname = (hashlib.md5((user +
+                             script_name).encode('utf-8')).hexdigest())
+    rate_filename = "/tmp/nagios-{}".format(hashname)
+    if os.path.exists(rate_filename):
+        with open(rate_filename, "r+") as ratefile:
+            try:
+                values_from_file = json.load(ratefile)
+                if label in values_from_file:
+                    delta = value - values_from_file[label][0]
+                    time_delta = time_now - values_from_file[label][1]
+                    rate = delta / time_delta
+                    rate_name = label + "_rate"
+                    return (rate_name, rate)
+                values_from_file[label] = (value, time_now)
+                with open(rate_filename, "w+") as ratefile:
+                    json.dump(values_from_file, ratefile,
+                              ensure_ascii=False, sort_keys=True,
+                              indent=4)
+            except Exception, e:
+                print(str(e))
+                with open(rate_filename, "w+") as ratefile:
+                    json.dump(value_now, ratefile, ensure_ascii=False,
+                              sort_keys=True, indent=4)
+                return False
+    else:
+        print("Cannot find rate file.")
+        with open(rate_filename, "w+") as ratefile:
+            json.dump(value_now, ratefile, ensure_ascii=False,
+                      sort_keys=True, indent=4)
+        return False
