@@ -27,8 +27,11 @@ class PynagioCheck(object):
                                  help="Threshold(s) to check")
         self.parser.add_argument("-T", nargs='+', dest="threshold_regexes",
                                  help="Threshold regex(es) to check")
+        self.parser.add_argument("--no-perfdata", "--np", action='store_true',
+                                 help="Threshold regex(es) to check")
         self.args = self.parser.parse_args()
 
+        print(dir(self.args))
         # self.parse_thresholds()
 
     def add_option(self, *args):
@@ -134,9 +137,10 @@ class PynagioCheck(object):
         else:
             for label in self.metrics:
                 print("{} = {}".format(label, self.metrics[label]))
-        if self.perfdata:
-            print(" | ")
-            print("\n".join(self.perfdata))
+        if self.args.np_perfdata:
+            if self.perfdata:
+                print(" | ")
+                print("\n".join(self.perfdata))
         sys.exit(self.exitcode)
 
 
