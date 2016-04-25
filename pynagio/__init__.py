@@ -11,7 +11,7 @@ class PynagioCheck(object):
         self.metrics_regex = []
         self.thresholds = []
         self.checked_thresholds = []
-        self.thresholds_regex = []
+        self.threshold_regexes = []
         self.summary = ["OK"]
         self.output = []
         self.perfdata = []
@@ -25,11 +25,11 @@ class PynagioCheck(object):
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument("-t", nargs='+', dest="thresholds",
                                  help="Threshold(s) to check")
-        self.parser.add_argument("-T", nargs='+', dest="thresholds_regex",
+        self.parser.add_argument("-T", nargs='+', dest="threshold_regexes",
                                  help="Threshold regex(es) to check")
         self.args = self.parser.parse_args()
 
-        self.parse_thresholds()
+        # self.parse_thresholds()
 
     def add_option(self, *args):
         self.parser.add_argument(*args)
@@ -49,14 +49,9 @@ class PynagioCheck(object):
     def parse_thresholds(self):
         if self.args.thresholds:
             for threshold in self.args.thresholds:
-                parsed_threshold = {}
-                for kv in [part.split("=") for part in threshold.split(",")]:
-                    if kv[0] == 'metric':
-                        parsed_threshold['label'] = kv[1]
-                    if kv[0] in ['ok', 'crit', 'warn']:
-                        parsed_threshold[kv[0]] = [float(x) for x
-                                                   in kv[1].split("..")]
+                parsed_threshold = parse_threshold(threshold)
                 self.thresholds.append(parsed_threshold)
+                self.args.thresholds.remove(threshold)
 
     def check_thresholds(self, label, value):
         value = float(value)
@@ -87,11 +82,21 @@ class PynagioCheck(object):
                     checked_threshold['exitcode'] = 0
                     self.checked_thresholds.append(checked_threshold)
 
+    def filter_threshold_regexes(self, label):
+        for threshold_regex in self.args.threshold_regexes:
+            parsed_threshold_regex = parse_threshold_regex(threshold_regex)
+            label_regex = parsed_threshold_regex['label_regex']
+            rest = parsed_threshold_regex['rest']
+            if label_regex.match(label):
+                self.args.thresholds.append("metric={},{}".format(label, rest))
+
     def add_metrics(self, metrics):
         self.metrics = metrics
         for label in metrics:
             value = metrics[label]
             self.add_perfdata(label, value)
+            self.filter_threshold_regexes(label)
+            self.parse_thresholds()
             self.check_thresholds(label, value)
 
     def exit(self):
@@ -101,10 +106,12 @@ class PynagioCheck(object):
                     self.exitcode = 2
                     self.summary[0] = "CRITICAL"
                     break
-                if threshold['exitcode'] == 1:
-                    self.exitcode = 1
-                    self.summary[0] = "WARNING"
-                    break
+            if self.exitcode != 2:
+                for threshold in self.checked_thresholds:
+                    if threshold['exitcode'] == 1:
+                        self.exitcode = 1
+                        self.summary[0] = "WARNING"
+                        break
             for threshold in self.checked_thresholds:
                 if threshold['exitcode'] == 2:
                     self.critical_on.append("{} = {}".format(
@@ -133,10 +140,23 @@ class PynagioCheck(object):
         sys.exit(self.exitcode)
 
 
-# for future use
-def match_label(regexes, label):
-    for regex in regexes:
-        compiled_regex = re.compile(regex)
-        if compiled_regex.match(label):
-            return True
-        return False
+def parse_threshold(threshold):
+    parsed_threshold = {}
+    for kv in [part.split("=") for part in threshold.split(",")]:
+        if kv[0] == 'metric':
+            parsed_threshold['label'] = kv[1]
+        if kv[0] in ['ok', 'crit', 'warn']:
+            parsed_threshold[kv[0]] = [float(x) for x
+                                       in kv[1].split("..")]
+    return parsed_threshold
+
+
+def parse_threshold_regex(threshold_regex):
+    parsed_threshold_regex = {}
+    parsed_threshold_regex['rest'] = ""
+    for kv in threshold_regex.split(","):
+        if kv.split("=")[0] == "metric":
+            parsed_threshold_regex['label_regex'] = re.compile(kv.split("=")[1])
+        else:
+            parsed_threshold_regex['rest'] += "," + kv
+    return parsed_threshold_regex
