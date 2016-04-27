@@ -36,10 +36,13 @@ class PynagioCheck(object):
                                  help="Threshold regex(es) to check")
         self.parser.add_argument("-r", nargs='+', dest="rates",
                                  help="Rates to calculate")
-        self.args = self.parser.parse_args()
+        #self.args = self.parser.parse_args()
 
-    def add_option(self, *args):
-        self.parser.add_argument(*args)
+    def add_option(self, *args, **kwargs):
+        self.parser.add_argument(*args, **kwargs)
+
+    def parse_arguments(self):
+        self.args = self.parser.parse_args()
 
     def add_summary(self, summary):
         self.summary.append(summary)
@@ -49,9 +52,6 @@ class PynagioCheck(object):
 
     def add_perfdata(self, label, value):
         self.perfdata.append("{}={}".format(label, value))
-
-    def add_rate(self, metric, *filename):
-        pass
 
     def parse_thresholds(self):
         if self.args.thresholds:

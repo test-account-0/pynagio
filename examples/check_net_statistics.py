@@ -6,6 +6,7 @@ import glob
 import fileinput
 
 
+# Function to get a dictionay out of sth - metric_name: metric_value
 def get_data():
     files = glob.glob('/sys/class/net/*/statistics/*')
 
@@ -18,9 +19,12 @@ def get_data():
 
 
 def main():
+    # it needs to be a dictionary
     metrics = get_data()
 
+    # Common lines to every script
     check = pynagio.PynagioCheck()
+    check.parse_arguments()
     check.add_metrics(metrics)
     check.exit()
 
