@@ -17,6 +17,7 @@ class PynagioCheck(object):
         self.thresholds = []
         self.checked_thresholds = []
         self.threshold_regexes = []
+        self.filtered_thresholds = []
         self.summary = ["OK"]
         self.output = []
         self.perfdata = []
@@ -62,10 +63,16 @@ class PynagioCheck(object):
                 parsed_threshold = parse_threshold(threshold)
                 self.thresholds.append(parsed_threshold)
                 self.args.thresholds.remove(threshold)
+        if self.filtered_thresholds:
+            for threshold in self.filtered_thresholds:
+                parsed_threshold = parse_threshold(threshold)
+                self.thresholds.append(parsed_threshold)
+                self.filtered_thresholds.remove(threshold)
 
     def check_thresholds(self, label, value):
         value = float(value)
         if self.thresholds:
+            print self.thresholds
             for threshold in self.thresholds:
                 if label == threshold['label']:
                     checked_threshold = threshold
@@ -99,8 +106,8 @@ class PynagioCheck(object):
                 label_regex = parsed_threshold_regex['label_regex']
                 rest = parsed_threshold_regex['rest']
                 if label_regex.match(label):
-                    self.args.thresholds.append("metric={},{}".format(label,
-                                                                      rest))
+                    self.filtered_thresholds.append("metric={},{}".format(label,
+                                                                          rest))
 
     def get_rate(self, label, value):
         if self.args.rates:
