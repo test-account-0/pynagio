@@ -12,7 +12,7 @@ class PynagioCheck(object):
 
     def __init__(self):
         self.options = []
-        self.metrics = []
+        self.metrics = {}
         self.metrics_regex = []
         self.thresholds = []
         self.checked_thresholds = []
@@ -22,7 +22,8 @@ class PynagioCheck(object):
         self.perfdata = []
         self.perfdata_regex = []
         self.rates = {}
-        self.rates_regex = []
+        self.rate_regexes = []
+        self.filtered_rates = []
         self.exitcode = 0
         self.critical_on = []
         self.warning_on = []
@@ -36,7 +37,9 @@ class PynagioCheck(object):
                                  help="Threshold regex(es) to check")
         self.parser.add_argument("-r", nargs='+', dest="rates",
                                  help="Rates to calculate")
-        #self.args = self.parser.parse_args()
+        self.parser.add_argument("-R", nargs='+', dest="rate_regexes",
+                                 help="Rates regex to calculate")
+        # self.args = self.parser.parse_args()
 
     def add_option(self, *args, **kwargs):
         self.parser.add_argument(*args, **kwargs)
@@ -104,10 +107,19 @@ class PynagioCheck(object):
             if label in self.args.rates and calculate_rate(label, value):
                 rate_name, rate = calculate_rate(label, value)
                 return rate_name, rate
+        if self.filtered_rates:
+            if label in self.filtered_rates and calculate_rate(label, value):
+                rate_name, rate = calculate_rate(label, value)
+                return rate_name, rate
         return False
 
     def add_metrics(self, metrics):
         self.metrics = metrics
+        for label in metrics:
+            value = float(metrics[label])
+            if self.args.rate_regexes:
+                if match_label(self.args.rate_regexes, label):
+                    self.filtered_rates.append(label)
         for label in metrics:
             value = float(metrics[label])
             if self.get_rate(label, value):
@@ -220,4 +232,12 @@ def calculate_rate(label, value):
         with open(rate_filename, "w+") as ratefile:
             json.dump(value_now, ratefile, ensure_ascii=False,
                       sort_keys=True, indent=4)
+        return False
+
+
+def match_label(regexes, label):
+    for regex in regexes:
+        compiled_regex = re.compile(regex)
+        if compiled_regex.match(label):
+            return True
         return False
