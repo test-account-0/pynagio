@@ -72,7 +72,6 @@ class PynagioCheck(object):
     def check_thresholds(self, label, value):
         value = float(value)
         if self.thresholds:
-            print self.thresholds
             for threshold in self.thresholds:
                 if label == threshold['label']:
                     checked_threshold = threshold
