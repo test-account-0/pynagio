@@ -80,10 +80,10 @@ class PynagioCheck(object):
                     if 'prefix' in threshold:
                         for name in ['ok', 'crit', 'warn']:
                             if name in threshold:
-                                threshold[name][0] = threshold[name][0]
-                                * prefixes.prefixes[threshold['prefix']]
-                                threshold[name][1] = threshold[name][1]
-                                * prefixes.prefixes[threshold['prefix']]
+                                threshold[name][0] = (threshold[name][0]
+                                * prefixes.prefixes[threshold['prefix']])
+                                threshold[name][1] = (threshold[name][1]
+                                * prefixes.prefixes[threshold['prefix']])
                     if 'ok' in threshold:
                         if threshold['ok'][0] < value <= threshold['ok'][1]:
                             checked_threshold['exitcode'] = 0
@@ -219,9 +219,14 @@ def calculate_rate(label, value):
     value_now = {label: (value, time_now)}
     user = getpass.getuser()
     script_name = os.path.basename(__file__)
-    hashname = (hashlib.md5((user +
-                             script_name).encode('utf-8')).hexdigest())
-    rate_filename = "/tmp/nagios-{}".format(hashname)
+    script_args = "-".join(sys.argv)
+    print(script_args)
+    hashname = (hashlib.md5((user + script_name
+                             + script_args).encode('utf-8')).hexdigest())
+    if user == "root":
+        rate_filename = "/var/run/nagios-{}".format(hashname)
+    else:
+        rate_filename = "/tmp/nagios-{}".format(hashname)
     if os.path.exists(rate_filename):
         with open(rate_filename, "r+") as ratefile:
             try:
