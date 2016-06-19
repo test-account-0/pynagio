@@ -6,6 +6,7 @@ import time
 import getpass
 import hashlib
 import json
+import prefixes
 
 
 class PynagioCheck(object):
@@ -76,6 +77,13 @@ class PynagioCheck(object):
                 if label == threshold['label']:
                     checked_threshold = threshold
                     checked_threshold['value'] = value
+                    if 'prefix' in threshold:
+                        for name in ['ok', 'crit', 'warn']:
+                            if name in threshold:
+                                threshold[name][0] = threshold[name][0]
+                                * prefixes.prefixes[threshold['prefix']]
+                                threshold[name][1] = threshold[name][1]
+                                * prefixes.prefixes[threshold['prefix']]
                     if 'ok' in threshold:
                         if threshold['ok'][0] < value <= threshold['ok'][1]:
                             checked_threshold['exitcode'] = 0
@@ -190,6 +198,8 @@ def parse_threshold(threshold):
         if kv[0] in ['ok', 'crit', 'warn']:
             parsed_threshold[kv[0]] = [float(x) for x
                                        in kv[1].split("..")]
+        if kv[0] == 'prefix':
+            parsed_threshold['prefix'] = kv[1]
     return parsed_threshold
 
 
