@@ -220,7 +220,6 @@ def calculate_rate(label, value):
     user = getpass.getuser()
     script_name = os.path.basename(__file__)
     script_args = "-".join(sys.argv)
-    print(script_args)
     hashname = (hashlib.md5((user + script_name
                              + script_args).encode('utf-8')).hexdigest())
     if user == "root":
