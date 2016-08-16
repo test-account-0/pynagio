@@ -234,13 +234,10 @@ def calculate_rate(label, value):
                 values_from_file = json.load(ratefile)
                 if label in values_from_file:
                     delta = value - values_from_file[label][0]
-                    print(value, values_from_file[label][0], delta)
                     time_delta = time_now - values_from_file[label][1]
                     rate = delta / time_delta
                     rate_name = label + "_rate"
-                    print(value, time_now)
                     values_from_file[label] = (value, time_now)
-                    print(value, time_now)
                     with open(rate_filename, "w+") as ratefile:
                         json.dump(values_from_file, ratefile,
                                   ensure_ascii=False, sort_keys=True,
