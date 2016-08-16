@@ -117,13 +117,14 @@ class PynagioCheck(object):
                                                                           rest))
 
     def get_rate(self, label, value):
+        calculated_rate = calculate_rate(label, value)
         if self.args.rates:
-            if label in self.args.rates and calculate_rate(label, value):
-                rate_name, rate = calculate_rate(label, value)
+            if label in self.args.rates and calculated_rate:
+                rate_name, rate = calculated_rate
                 return rate_name, rate
         if self.filtered_rates:
-            if label in self.filtered_rates and calculate_rate(label, value):
-                rate_name, rate = calculate_rate(label, value)
+            if label in self.filtered_rates and calculated_rate:
+                rate_name, rate = calculated_rate
                 return rate_name, rate
         return False
 
@@ -136,8 +137,9 @@ class PynagioCheck(object):
                     self.filtered_rates.append(label)
         for label in metrics:
             value = float(metrics[label])
-            if self.get_rate(label, value):
-                rate_name, rate = self.get_rate(label, value)
+            rate_value = self.get_rate(label, value)
+            if rate_value:
+                rate_name, rate = rate_value
                 self.rates[rate_name] = rate
         if self.rates:
             metrics.update(self.rates)
@@ -232,15 +234,18 @@ def calculate_rate(label, value):
                 values_from_file = json.load(ratefile)
                 if label in values_from_file:
                     delta = value - values_from_file[label][0]
+                    print(value, values_from_file[label][0], delta)
                     time_delta = time_now - values_from_file[label][1]
                     rate = delta / time_delta
                     rate_name = label + "_rate"
+                    print(value, time_now)
+                    values_from_file[label] = (value, time_now)
+                    print(value, time_now)
+                    with open(rate_filename, "w+") as ratefile:
+                        json.dump(values_from_file, ratefile,
+                                  ensure_ascii=False, sort_keys=True,
+                                  indent=4)
                     return (rate_name, rate)
-                values_from_file[label] = (value, time_now)
-                with open(rate_filename, "w+") as ratefile:
-                    json.dump(values_from_file, ratefile,
-                              ensure_ascii=False, sort_keys=True,
-                              indent=4)
             except Exception, e:
                 print(str(e))
                 with open(rate_filename, "w+") as ratefile:
@@ -250,6 +255,8 @@ def calculate_rate(label, value):
     else:
         print("Cannot find rate file.")
         with open(rate_filename, "w+") as ratefile:
+            time_now = time.time()
+            value_now = {label: (value, time_now)}
             json.dump(value_now, ratefile, ensure_ascii=False,
                       sort_keys=True, indent=4)
         return False
