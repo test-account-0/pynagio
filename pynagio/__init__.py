@@ -136,11 +136,20 @@ class PynagioCheck(object):
                 if match_label(self.args.rate_regexes, label):
                     self.filtered_rates.append(label)
         for label in metrics:
-            value = float(metrics[label])
-            rate_value = self.get_rate(label, value)
-            if rate_value:
-                rate_name, rate = rate_value
-                self.rates[rate_name] = rate
+            if self.filtered_rates:
+                if label in self.filtered_rates:
+                    value = float(metrics[label])
+                    rate_value = self.get_rate(label, value)
+                    if rate_value:
+                        rate_name, rate = rate_value
+                        self.rates[rate_name] = rate
+            if self.args.rates:
+                if label in self.args.rates:
+                    value = float(metrics[label])
+                    rate_value = self.get_rate(label, value)
+                    if rate_value:
+                        rate_name, rate = rate_value
+                        self.rates[rate_name] = rate
         if self.rates:
             metrics.update(self.rates)
         for label in metrics:
