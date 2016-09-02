@@ -243,6 +243,12 @@ def calculate_rate(label, value):
                                   ensure_ascii=False, sort_keys=True,
                                   indent=4)
                     return (rate_name, rate)
+                else:
+                    values_from_file.update(value_now)
+                    with open(rate_filename, "w+") as ratefile:
+                        json.dump(values_from_file, ratefile,
+                                  ensure_ascii=False, sort_keys=True,
+                                  indent=4)
             except Exception, e:
                 print(str(e))
                 with open(rate_filename, "w+") as ratefile:
@@ -250,7 +256,6 @@ def calculate_rate(label, value):
                               sort_keys=True, indent=4)
                 return False
     else:
-        print("Cannot find rate file.")
         with open(rate_filename, "w+") as ratefile:
             time_now = time.time()
             value_now = {label: (value, time_now)}
