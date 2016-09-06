@@ -175,10 +175,12 @@ class PynagioCheck(object):
             for threshold in self.checked_thresholds:
                 if threshold['exitcode'] == 2:
                     self.critical_on.append("{} = {}".format(
-                        threshold['label'], threshold['value']))
+                        #threshold['label'], threshold['value']))
+                        threshold['label'], "{:.2f}".format(threshold['value'])))
                 if threshold['exitcode'] == 1:
                     self.warning_on.append("{} = {}".format(
-                        threshold['label'], threshold['value']))
+                        #threshold['label'], threshold['value']))
+                        threshold['label'], "{:.2f}".format(threshold['value'])))
         summary_line = ""
         if self.summary:
             summary_line += " ".join(self.summary) + " "
