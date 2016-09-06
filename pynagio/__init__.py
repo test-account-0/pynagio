@@ -19,7 +19,7 @@ class PynagioCheck(object):
         self.checked_thresholds = []
         self.threshold_regexes = []
         self.filtered_thresholds = []
-        self.summary = ["OK"]
+        self.summary = []
         self.output = []
         self.perfdata = []
         self.perfdata_regex = []
@@ -164,13 +164,13 @@ class PynagioCheck(object):
             for threshold in self.checked_thresholds:
                 if threshold['exitcode'] == 2:
                     self.exitcode = 2
-                    self.summary[0] = "CRITICAL"
+                    #self.summary[0] = "CRITICAL"
                     break
             if self.exitcode != 2:
                 for threshold in self.checked_thresholds:
                     if threshold['exitcode'] == 1:
                         self.exitcode = 1
-                        self.summary[0] = "WARNING"
+                        #self.summary[0] = "WARNING"
                         break
             for threshold in self.checked_thresholds:
                 if threshold['exitcode'] == 2:
@@ -185,10 +185,10 @@ class PynagioCheck(object):
         if self.summary:
             summary_line += " ".join(self.summary) + " "
         if self.critical_on:
-            summary_line += "Critical on" + "  " + "  ".join(
+            summary_line += "CRITICAL" + "  " + "  ".join(
                 self.critical_on) + "  "
         if self.warning_on:
-            summary_line += "Warning on" + "  " + "  ".join(
+            summary_line += "WARNING" + "  " + "  ".join(
                 self.warning_on) + "  "
         print(summary_line)
         if self.output:
