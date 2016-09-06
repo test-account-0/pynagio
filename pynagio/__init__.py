@@ -185,11 +185,11 @@ class PynagioCheck(object):
         if self.summary:
             summary_line += " ".join(self.summary) + " "
         if self.critical_on:
-            summary_line += "CRITICAL" + "  " + "  ".join(
-                self.critical_on) + "  "
+            summary_line += "CRITICAL on " + " ".join(
+                self.critical_on) + " "
         if self.warning_on:
-            summary_line += "WARNING" + "  " + "  ".join(
-                self.warning_on) + "  "
+            summary_line += "WARNING on " + " ".join(
+                self.warning_on) + " "
         print(summary_line)
         if self.output:
             print(self.output)
