@@ -36,7 +36,9 @@ class PynagioCheck(object):
         self.parser.add_argument("-T", nargs='+', dest="threshold_regexes",
                                  help="Threshold regex(es) to check")
         self.parser.add_argument("--no-perfdata", "--np", action='store_true',
-                                 help="Threshold regex(es) to check")
+                                 help="Do not print perfdata")
+        self.parser.add_argument("--no-long-output", "--nl", action='store_true',
+                                 help="Do not print long output")
         self.parser.add_argument("-r", nargs='+', dest="rates",
                                  help="Rates to calculate")
         self.parser.add_argument("-R", nargs='+', dest="rate_regexes",
@@ -193,8 +195,9 @@ class PynagioCheck(object):
         else:
             summary_line += "OK"
         print(summary_line)
-        if self.output:
-            print(self.output)
+        if self.args.no_long_output:
+            if self.output:
+                print(self.output)
         else:
             for label in self.metrics:
                 print("{} = {}".format(label, self.metrics[label]))
