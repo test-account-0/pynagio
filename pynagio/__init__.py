@@ -1,4 +1,4 @@
-import argparse
+#import argparse
 import sys
 import os
 import re
@@ -7,6 +7,7 @@ import getpass
 import hashlib
 import json
 import prefixes
+import hacked_argument_parser
 
 
 class PynagioCheck(object):
@@ -30,7 +31,7 @@ class PynagioCheck(object):
         self.critical_on = []
         self.warning_on = []
 
-        self.parser = argparse.ArgumentParser()
+        self.parser = hacked_argument_parser.HackedArgumentParser()
         self.parser.add_argument("-t", nargs='+', dest="thresholds",
                                  help="Threshold(s) to check")
         self.parser.add_argument("-T", nargs='+', dest="threshold_regexes",
@@ -131,6 +132,12 @@ class PynagioCheck(object):
         return False
 
     def add_metrics(self, metrics):
+        if not isinstance(metrics, dict):
+            print("Unknown, no dict of metrics given")
+            sys.exit(3)
+        if not metrics:
+            print("Unknown, no metrics given")
+            sys.exit(3)
         self.metrics = metrics
         for label in metrics:
             value = float(metrics[label])
