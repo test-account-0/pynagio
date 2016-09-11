@@ -6,8 +6,8 @@ import time
 import getpass
 import hashlib
 import json
-import prefixes
-import hacked_argument_parser
+import pynagio.prefixes
+import pynagio.hacked_argument_parser
 
 
 class PynagioCheck(object):
@@ -248,12 +248,14 @@ def calculate_rate(label, value):
     hashname = (hashlib.md5((user + script_name
                              + script_args).encode('utf-8')).hexdigest())
     if user == "root":
-        rate_filename = "/var/run/nagios-{}".format(hashname)
+        rate_dir = "/var/run"
+        rate_filename = "{}/nagios-{}".format(rate_dir, hashname)
     else:
-        rate_filename = "/tmp/nagios-{}".format(hashname)
+        rate_dir = "/tmp"
+        rate_filename = "{}/nagios-{}".format(rate_dir, hashname)
     if os.path.exists(rate_filename):
-        with open(rate_filename, "r+") as ratefile:
-            try:
+        try:
+            with open(rate_filename, "r+") as ratefile:
                 values_from_file = json.load(ratefile)
                 if label in values_from_file:
                     delta = value - values_from_file[label][0]
@@ -272,18 +274,26 @@ def calculate_rate(label, value):
                         json.dump(values_from_file, ratefile,
                                   ensure_ascii=False, sort_keys=True,
                                   indent=4)
-            except Exception, e:
-                print(str(e))
+        except Exception as e:
+            try:
                 with open(rate_filename, "w+") as ratefile:
                     json.dump(value_now, ratefile, ensure_ascii=False,
                               sort_keys=True, indent=4)
-                return False
+            except IOError:
+                print("Cannot write to the rate file {}".format(rate_filename))
+                print(str(e))
+                sys.exit(2)
+            return False
     else:
-        with open(rate_filename, "w+") as ratefile:
-            time_now = time.time()
-            value_now = {label: (value, time_now)}
-            json.dump(value_now, ratefile, ensure_ascii=False,
-                      sort_keys=True, indent=4)
+        try:
+            with open(rate_filename, "w+") as ratefile:
+                time_now = time.time()
+                value_now = {label: (value, time_now)}
+                json.dump(value_now, ratefile, ensure_ascii=False,
+                          sort_keys=True, indent=4)
+        except IOError:
+            print("Cannot create rate file in {}".format(rate_dir))
+            sys.exit(2)
         return False
 
 

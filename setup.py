@@ -1,7 +1,7 @@
 from distutils.core import setup
 
 setup(name='pynagio',
-    version='0.1.4',
+    version='0.1.5',
     description="Super simple nagios check python library",
     packages=['pynagio'],
 )
