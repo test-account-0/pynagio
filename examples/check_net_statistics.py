@@ -19,7 +19,7 @@ def get_data():
 
 
 def main():
-    # it needs to be a dictionary
+    # "metrics" needs to be a dictionary
     metrics = get_data()
 
     # Common lines to every script

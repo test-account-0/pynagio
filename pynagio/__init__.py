@@ -30,6 +30,7 @@ class PynagioCheck(object):
         self.exitcode = 0
         self.critical_on = []
         self.warning_on = []
+        self.unknown_on = []
 
         self.parser = hacked_argument_parser.HackedArgumentParser()
         self.parser.add_argument("-t", nargs='+', dest="thresholds",
@@ -38,13 +39,13 @@ class PynagioCheck(object):
                                  help="Threshold regex(es) to check")
         self.parser.add_argument("--no-perfdata", "--np", action='store_true',
                                  help="Do not print perfdata")
-        self.parser.add_argument("--no-long-output", "--nl", action='store_true',
+        self.parser.add_argument("--no-long-output", "--nl",
+                                 action='store_true',
                                  help="Do not print long output")
         self.parser.add_argument("-r", nargs='+', dest="rates",
                                  help="Rates to calculate")
         self.parser.add_argument("-R", nargs='+', dest="rate_regexes",
                                  help="Rates regex to calculate")
-        # self.args = self.parser.parse_args()
 
     def add_option(self, *args, **kwargs):
         self.parser.add_argument(*args, **kwargs)
@@ -73,11 +74,13 @@ class PynagioCheck(object):
                 self.thresholds.append(parsed_threshold)
                 self.filtered_thresholds.remove(threshold)
 
-    def check_thresholds(self, label, value):
-        value = float(value)
+
+    def check_thresholds(self, metrics):
         if self.thresholds:
             for threshold in self.thresholds:
-                if label == threshold['label']:
+                label = threshold['label']
+                if label in metrics.keys():
+                    value = float(metrics[label])
                     checked_threshold = threshold
                     checked_threshold['value'] = value
                     if 'prefix' in threshold:
@@ -91,23 +94,28 @@ class PynagioCheck(object):
                         if threshold['ok'][0] < value <= threshold['ok'][1]:
                             checked_threshold['exitcode'] = 0
                             self.checked_thresholds.append(checked_threshold)
-                            break
+                            continue
                     if 'crit' in threshold:
                         if threshold['crit'][0] < value <= threshold['crit'][1]:
                             checked_threshold['exitcode'] = 2
                             self.checked_thresholds.append(checked_threshold)
-                            break
+                            continue
                     if 'warn' in threshold:
                         if threshold['warn'][0] < value <= threshold['warn'][1]:
                             checked_threshold['exitcode'] = 1
                             self.checked_thresholds.append(checked_threshold)
-                            break
+                            continue
                     if 'ok' in threshold:
                         checked_threshold['exitcode'] = 2
                         self.checked_thresholds.append(checked_threshold)
-                        break
+                        continue
                     checked_threshold['exitcode'] = 0
                     self.checked_thresholds.append(checked_threshold)
+                else:
+                    self.unknown_on.append(("No such metric {}"
+                        .format(label)))
+                    self.exitcode = 3
+
 
     def filter_threshold_regexes(self, label):
         if self.args.threshold_regexes:
@@ -118,6 +126,24 @@ class PynagioCheck(object):
                 if label_regex.match(label):
                     self.filtered_thresholds.append("metric={},{}".format(label,
                                                                           rest))
+
+
+    def filter_threshold_regexes_labels(self, labels):
+        if self.args.threshold_regexes:
+            for threshold_regex in self.args.threshold_regexes:
+                parsed_threshold_regex = parse_threshold_regex(threshold_regex)
+                label_regex = parsed_threshold_regex['label_regex']
+                rest = parsed_threshold_regex['rest']
+                matched_labels = match_regex_labels(label_regex, labels)
+                if matched_labels:
+                    for matched_label in matched_labels:
+                        self.filtered_thresholds.append("metric={},{}".format(
+                            matched_label, rest))
+                else:
+                    self.unknown_on.append(("No match for threshold regex {}"
+                        .format(threshold_regex)))
+                    self.exitcode = 3
+
 
     def get_rate(self, label, value):
         calculated_rate = calculate_rate(label, value)
@@ -131,19 +157,26 @@ class PynagioCheck(object):
                 return rate_name, rate
         return False
 
+
     def add_metrics(self, metrics):
-        if not isinstance(metrics, dict):
-            print("Unknown, no dict of metrics given")
-            sys.exit(3)
         if not metrics:
-            print("Unknown, no metrics given")
+            print("UNKNOWN: no metrics privided")
             sys.exit(3)
+        if not isinstance(metrics, dict):
+            print("UNKNOWN: no dict of metrics provided")
+            sys.exit(3)
+        if not hasattr(self, "args"):
+            self.parse_arguments()
         self.metrics = metrics
-        for label in metrics:
-            value = float(metrics[label])
-            if self.args.rate_regexes:
-                if match_label(self.args.rate_regexes, label):
-                    self.filtered_rates.append(label)
+        if hasattr(self.args, "rate_regexes") and self.args.rate_regexes:
+            for rate_regex in self.args.rate_regexes:
+                matched_labels = match_regex_labels(rate_regex, metrics.keys())
+                if matched_labels:
+                    self.filtered_rates.extend(matched_labels)
+                else:
+                    self.unknown_on.append(("No match for rate regex {}"
+                        .format(rate_regex)))
+                    self.exitcode = 3
         for label in metrics:
             if self.filtered_rates:
                 if label in self.filtered_rates:
@@ -152,21 +185,27 @@ class PynagioCheck(object):
                     if rate_value:
                         rate_name, rate = rate_value
                         self.rates[rate_name] = rate
-            if self.args.rates:
-                if label in self.args.rates:
-                    value = float(metrics[label])
-                    rate_value = self.get_rate(label, value)
+        if self.args.rates:
+            for name in self.args.rates:
+                if not name in metrics:
+                    self.unknown_on.append(("No such metric {}"
+                        .format(name)))
+                    self.exitcode = 3
+                else:
+                    value = float(metrics[name])
+                    rate_value = self.get_rate(name, value)
                     if rate_value:
                         rate_name, rate = rate_value
                         self.rates[rate_name] = rate
         if self.rates:
             metrics.update(self.rates)
+        self.filter_threshold_regexes_labels(metrics.keys())
         for label in metrics:
             value = float(metrics[label])
             self.add_perfdata(label, value)
-            self.filter_threshold_regexes(label)
             self.parse_thresholds()
-            self.check_thresholds(label, value)
+        self.check_thresholds(metrics)
+
 
     def exit(self):
         if self.checked_thresholds:
@@ -196,10 +235,13 @@ class PynagioCheck(object):
         if self.critical_on:
             summary_line += "CRITICAL on " + " ".join(
                 self.critical_on) + " "
-        elif self.warning_on:
+        if self.warning_on:
             summary_line += "WARNING on " + " ".join(
                 self.warning_on) + " "
-        else:
+        if self.unknown_on:
+            summary_line += "UNKNOWN: " + " ".join(
+                self.unknown_on) + " "
+        if self.exitcode == 0:
             summary_line += "OK"
         print(summary_line)
         if self.args.no_long_output:
@@ -275,13 +317,14 @@ def calculate_rate(label, value):
                                   ensure_ascii=False, sort_keys=True,
                                   indent=4)
         except Exception as e:
+            print(str(e))
             try:
                 with open(rate_filename, "w+") as ratefile:
                     json.dump(value_now, ratefile, ensure_ascii=False,
                               sort_keys=True, indent=4)
-            except IOError:
+            except IOError as ioe:
                 print("Cannot write to the rate file {}".format(rate_filename))
-                print(str(e))
+                print(str(ioe))
                 sys.exit(2)
             return False
     else:
@@ -291,8 +334,9 @@ def calculate_rate(label, value):
                 value_now = {label: (value, time_now)}
                 json.dump(value_now, ratefile, ensure_ascii=False,
                           sort_keys=True, indent=4)
-        except IOError:
+        except IOError as ioe:
             print("Cannot create rate file in {}".format(rate_dir))
+            print(str(ioe))
             sys.exit(2)
         return False
 
@@ -303,3 +347,14 @@ def match_label(regexes, label):
         if compiled_regex.match(label):
             return True
         return False
+
+
+def match_regex_labels(regex, labels):
+    compiled_regex = re.compile(regex)
+    matched_labels = []
+    for label in labels:
+        if compiled_regex.match(label):
+            matched_labels.append(label)
+    if not matched_labels:
+        return False
+    return matched_labels
