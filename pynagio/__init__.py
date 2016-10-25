@@ -160,7 +160,7 @@ class PynagioCheck(object):
 
     def add_metrics(self, metrics):
         if not metrics:
-            print("UNKNOWN: no metrics privided")
+            print("UNKNOWN: no metrics provided")
             sys.exit(3)
         if not isinstance(metrics, dict):
             print("UNKNOWN: no dict of metrics provided")
