@@ -364,5 +364,5 @@ def match_regex_labels(regex, labels):
         if compiled_regex.search(label):
             matched_labels.append(label)
     if not matched_labels:
-        return False
+        return []
     return matched_labels
