@@ -46,6 +46,8 @@ class PynagioCheck(object):
                                  help="Rates to calculate")
         self.parser.add_argument("-R", nargs='+', dest="rate_regexes",
                                  help="Rates regex to calculate")
+        self.parser.add_argument("-B", nargs='+', dest="blacklist_regexes",
+                                 help="Blacklist regexes")
 
     def add_option(self, *args, **kwargs):
         self.parser.add_argument(*args, **kwargs)
@@ -167,7 +169,13 @@ class PynagioCheck(object):
             sys.exit(3)
         if not hasattr(self, "args"):
             self.parse_arguments()
-        self.metrics = metrics
+        if hasattr(self.args, "blacklist_regexes") and self.args.blacklist_regexes:
+            blacklisted_labels = []
+            for blacklist_regex in self.args.blacklist_regexes:
+                blacklisted_labels.extend(match_regex_labels(blacklist_regex, metrics.keys()))
+            print(blacklisted_labels)
+            if blacklisted_labels:
+                metrics = {label: metrics[label] for label in metrics if label not in blacklisted_labels}
         if hasattr(self.args, "rate_regexes") and self.args.rate_regexes:
             for rate_regex in self.args.rate_regexes:
                 matched_labels = match_regex_labels(rate_regex, metrics.keys())
@@ -200,6 +208,7 @@ class PynagioCheck(object):
         if self.rates:
             metrics.update(self.rates)
         self.filter_threshold_regexes_labels(metrics.keys())
+        self.metrics = metrics
         for label in metrics:
             value = float(metrics[label])
             self.add_perfdata(label, value)
@@ -344,16 +353,16 @@ def calculate_rate(label, value):
 def match_label(regexes, label):
     for regex in regexes:
         compiled_regex = re.compile(regex)
-        if compiled_regex.match(label):
+        if compiled_regex.search(label):
             return True
-        return False
+    return False
 
 
 def match_regex_labels(regex, labels):
     compiled_regex = re.compile(regex)
     matched_labels = []
     for label in labels:
-        if compiled_regex.match(label):
+        if compiled_regex.search(label):
             matched_labels.append(label)
     if not matched_labels:
         return False
