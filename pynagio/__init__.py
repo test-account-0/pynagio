@@ -173,7 +173,6 @@ class PynagioCheck(object):
             blacklisted_labels = []
             for blacklist_regex in self.args.blacklist_regexes:
                 blacklisted_labels.extend(match_regex_labels(blacklist_regex, metrics.keys()))
-            print(blacklisted_labels)
             if blacklisted_labels:
                 metrics = {label: metrics[label] for label in metrics if label not in blacklisted_labels}
         if hasattr(self.args, "rate_regexes") and self.args.rate_regexes:
