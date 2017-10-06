@@ -255,7 +255,7 @@ class PynagioCheck(object):
                 self.unknown_on) + " "
         if self.exitcode == 0:
             summary_line += "OK"
-        print(summary_line)
+        print(summary_line,end=' '),
         if self.args.no_long_output:
             if self.output:
                 print(self.output)
@@ -264,8 +264,8 @@ class PynagioCheck(object):
                 print("{} = {}".format(label, self.metrics[label]))
         if not self.args.no_perfdata:
             if self.perfdata:
-                print(" | ")
-                print("\n".join(self.perfdata))
+                print(" | ", end='')
+                print(" ".join(self.perfdata))
         sys.exit(self.exitcode)
 
 
